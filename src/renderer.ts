@@ -242,13 +242,12 @@ export class Renderer {
     };
   }
 
-  async screenshot(
-    url: string,
+  async startScrenshotConfiguration(
     isMobile: boolean,
     dimensions: ViewportDimensions,
-    options?: ScreenshotOptions,
     timezoneId?: string
-  ): Promise<Buffer> {
+  ): Promise<puppeteer.Page>{
+    
     const page = await this.browser.newPage();
 
     // Page may reload when setting isMobile
@@ -276,6 +275,37 @@ export class Renderer {
     if (timezoneId) {
       await page.emulateTimezone(timezoneId);
     }
+
+    return page;
+  }
+
+  async endScreenshot(
+    page: puppeteer.Page,
+    options?: ScreenshotOptions,
+  ): Promise<Buffer> {
+    // Must be jpeg & binary format.
+    const screenshotOptions: ScreenshotOptions = {
+      type: options?.type || 'jpeg',
+      encoding: options?.encoding || 'binary',
+    };
+    // Screenshot returns a buffer based on specified encoding above.
+    // https://github.com/GoogleChrome/puppeteer/blob/v1.8.0/docs/api.md#pagescreenshotoptions
+    const buffer = (await page.screenshot(screenshotOptions)) as Buffer;
+    await page.close();
+    if (this.config.closeBrowser) {
+      await this.browser.close();
+    }
+    return buffer;
+  }
+
+  async screenshot(
+    url: string,
+    isMobile: boolean,
+    dimensions: ViewportDimensions,
+    options?: ScreenshotOptions,
+    timezoneId?: string
+  ): Promise<Buffer> {
+    const page = await this.startScrenshotConfiguration(isMobile, dimensions, timezoneId);
 
     let response: puppeteer.HTTPResponse | null = null;
 
@@ -307,19 +337,35 @@ export class Renderer {
       throw new ScreenshotError('Forbidden');
     }
 
-    // Must be jpeg & binary format.
-    const screenshotOptions: ScreenshotOptions = {
-      type: options?.type || 'jpeg',
-      encoding: options?.encoding || 'binary',
-    };
-    // Screenshot returns a buffer based on specified encoding above.
-    // https://github.com/GoogleChrome/puppeteer/blob/v1.8.0/docs/api.md#pagescreenshotoptions
-    const buffer = (await page.screenshot(screenshotOptions)) as Buffer;
-    await page.close();
-    if (this.config.closeBrowser) {
-      await this.browser.close();
+    return await this.endScreenshot(page, options);
+  }
+
+  async screenshotFromHTML(
+    html: string,
+    isMobile: boolean,
+    dimensions: ViewportDimensions,
+    options?: ScreenshotOptions,
+    timezoneId?: string
+  ): Promise<Buffer> {
+
+    const page = await this.startScrenshotConfiguration(isMobile, dimensions, timezoneId);
+
+    try {
+      // Navigate to page. Wait until there are no oustanding network requests.
+      await page.setContent(html, {
+        timeout: this.config.timeout,
+        waitUntil: 'networkidle0',
+      });
+    } catch (e) {
+      console.error(e);
+      await page.close();
+      if (this.config.closeBrowser) {
+        await this.browser.close();
+      }
+      throw new ScreenshotError('NoResponse');
     }
-    return buffer;
+
+    return await this.endScreenshot(page, options);
   }
 }
 
