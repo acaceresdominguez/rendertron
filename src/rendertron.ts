@@ -103,6 +103,12 @@ export class Rendertron {
         this.handleScreenshotRequest.bind(this)
       )
     );
+    this.app.use(
+      route.post(
+        '/html/screenshot',
+        this.handleHtmlScreenshotRequest.bind(this)
+      )
+    )
 
     return this.app.listen(+this.port, this.host, () => {
       console.log(`Listening on port ${this.port}`);
@@ -190,6 +196,45 @@ export class Rendertron {
     try {
       const img = await this.renderer.screenshot(
         url,
+        mobileVersion,
+        dimensions,
+        ctx.query.timezoneId
+      );
+
+      for (const key in this.config.headers) {
+        ctx.set(key, this.config.headers[key]);
+      }
+
+      ctx.set('Content-Type', 'image/jpeg');
+      ctx.set('Content-Length', img.length.toString());
+      ctx.body = img;
+    } catch (error) {
+      const err = error as ScreenshotError;
+      ctx.status = err.type === 'Forbidden' ? 403 : 500;
+    }
+  }
+
+  async handleHtmlScreenshotRequest(ctx: Koa.Context) {
+    if (!this.renderer) {
+      throw new Error('No renderer initalized yet.');
+    }
+
+    const dimensions = {
+      width: Number(ctx.query['width']) || this.config.width,
+      height: Number(ctx.query['height']) || this.config.height,
+    };
+
+    const mobileVersion = 'mobile' in ctx.query ? true : false;
+
+    if (!ctx.request.body || !ctx.request.body.html) {
+      throw new Error('html attribute is mandatory');
+    }
+
+    try {
+      let html = ctx.request.body.html;
+
+      const img = await this.renderer.screenshotFromHTML(
+        html,
         mobileVersion,
         dimensions,
         ctx.query.timezoneId
