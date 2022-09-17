@@ -226,7 +226,7 @@ export class Rendertron {
 
     const mobileVersion = 'mobile' in ctx.query ? true : false;
 
-    if (!ctx.request.body || !ctx.request.body.html) {
+    if (typeof(ctx.request.body) !== 'object' || !ctx.request.body.html) {
       throw new Error('html attribute is mandatory');
     }
 
