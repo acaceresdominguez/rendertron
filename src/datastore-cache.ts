@@ -141,6 +141,12 @@ export class DatastoreCache {
       ctx: Koa.Context,
       next: () => Promise<unknown>
     ) {
+
+      if (ctx.url.startsWith('/html/')) {
+        await next();
+        return;
+      }
+
       // Cache based on full URL. This means requests with different params are
       // cached separately (except for refreshCache parameter)
       let cacheKey = ctx.url.replace(/&?refreshCache=(?:true|false)&?/i, '');

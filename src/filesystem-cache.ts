@@ -87,7 +87,7 @@ export class FilesystemCache {
   }
 
   async clearAllCache() {
-    return new Promise((resolve) => {
+    return new Promise<void>((resolve) => {
       fs.readdir(this.getDir(''), (err, files) => {
         if (err) throw err;
         for (const file of files) {
@@ -228,6 +228,11 @@ export class FilesystemCache {
       next: () => Promise<unknown>
     ) {
 
+      if (ctx.url.startsWith('/html/')) {
+        await next();
+        return;
+      }
+      
       const cacheKey = this.sanitizeKey(ctx.url);
       // key is hashed crudely
       const key = this.hashCode(cacheKey);

@@ -124,6 +124,11 @@ export class MemoryCache {
   }
 
   private async handleRequest(ctx: Koa.Context, next: () => Promise<unknown>) {
+    if (ctx.url.startsWith('/html/')) {
+      await next();
+      return;
+    }
+    
     // Cache based on full URL. This means requests with different params are
     // cached separately.
 
